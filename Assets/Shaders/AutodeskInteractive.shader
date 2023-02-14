@@ -337,6 +337,10 @@ Shader "Autodesk Interactive With Ray Tracing"
 
             #pragma raytracing test
 
+            Texture2D<float4> _MainTex;
+            SamplerState sampler__MainTex;
+            float4 _MainTex_ST; // This is Tiling(.xy)/Offset(.zw) option in the Material inspector.
+
             struct AttributeData
             {
                 float2 barycentrics;
@@ -345,12 +349,14 @@ Shader "Autodesk Interactive With Ray Tracing"
             struct Vertex
             {
                 float3 normal;
+                float2 uv;
             };
 
             Vertex FetchVertex(uint vertexIndex)
             {
                 Vertex v;
                 v.normal = UnityRayTracingFetchVertexAttribute3(vertexIndex, kVertexAttributeNormal);
+                v.uv = UnityRayTracingFetchVertexAttribute3(vertexIndex, kVertexAttributeTexCoord0);
                 return v;
             }
 
@@ -359,6 +365,7 @@ Shader "Autodesk Interactive With Ray Tracing"
                 Vertex v;
                 #define INTERPOLATE_ATTRIBUTE(attr) v.attr = v0.attr * barycentrics.x + v1.attr * barycentrics.y + v2.attr * barycentrics.z
                 INTERPOLATE_ATTRIBUTE(normal);
+                INTERPOLATE_ATTRIBUTE(uv);
                 return v;
             }
 
@@ -375,9 +382,10 @@ Shader "Autodesk Interactive With Ray Tracing"
                 float3 barycentricCoords = float3(1.0 - attribs.barycentrics.x - attribs.barycentrics.y, attribs.barycentrics.x, attribs.barycentrics.y);
                 Vertex v = InterpolateVertices(v0, v1, v2, barycentricCoords);
 
-                float3 worldNormal = normalize(mul(v.normal, (float3x3)WorldToObject()));
+             //   float3 worldNormal = normalize(mul(v.normal, (float3x3)WorldToObject()));
 
-                payload.color.xyz = worldNormal;
+                // Sample mip level 0 here.
+                payload.color.xyz = _MainTex.SampleLevel(sampler__MainTex, v.uv * _MainTex_ST.xy + _MainTex_ST.zw, 0).xyz;
             }
 
             ENDHLSL
